@@ -164,6 +164,13 @@
     align-items: center;
     justify-content: center;
 }
+
+@media (max-width: 800px) {
+      .content {
+          flex-direction: column;
+      }
+  }
+
 .desc {
     color: white;
     margin: 30px;
