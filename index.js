@@ -68,8 +68,7 @@ function initTypingAnimation() {
         'Fullstack Developer',
         'Mobile Developer',
         'Web3 Enthusiast',
-        'Blockchain Developer',
-        'UI/UX Explorer'
+        'Blockchain Developer'
     ];
 
     let roleIndex = 0;
