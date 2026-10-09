@@ -118,11 +118,20 @@ if (isPre()) {
 }
 
 /* ---------------- 3D ---------------- */
-async function init3D() {
-    const [{ createSea }, { readPalette }, { createConstellation }, { createPreview }] = await Promise.all([
-        import('./intro.js'), import('./paint.js'), import('./constellation.js'), import('./preview.js')
-    ]);
+// Run once when an element comes within `margin` of the viewport.
+function whenNear(el, margin, fn) {
+    if (!el) return;
+    const io = new IntersectionObserver((entries) => {
+        if (!entries.some((e) => e.isIntersecting)) return;
+        io.disconnect();
+        fn();
+    }, { rootMargin: margin });
+    io.observe(el);
+}
 
+async function init3D() {
+    // The intro scene is the only thing needed on first paint; it is modulepreloaded in <head>.
+    const { createSea } = await import('./intro.js');
     sea = await createSea({ canvas: seaCanvas, reduced });
     intro.classList.add('ready');
     if (!isPre()) {
@@ -132,25 +141,32 @@ async function init3D() {
         enter(false);
     }
 
-    const palette = readPalette();
-    createConstellation({
-        canvas: $('#constellation'),
-        rows: [...document.querySelectorAll('.stack-row')],
-        label: $('#map-label'),
-        palette, reduced
+    // Secondary scenes get their own WebGL contexts, so build them only as their sections approach.
+    whenNear($('#stack'), '900px 0px', async () => {
+        const [{ readPalette }, { createConstellation }] = await Promise.all([import('./paint.js'), import('./constellation.js')]);
+        createConstellation({
+            canvas: $('#constellation'),
+            rows: [...document.querySelectorAll('.stack-row')],
+            label: $('#map-label'),
+            palette: readPalette(), reduced
+        });
     });
 
     if (matchMedia('(hover: hover) and (pointer: fine)').matches) {
-        const preview = createPreview({ el: $('#preview'), canvas: $('#preview-canvas'), caption: $('#preview-cap'), palette, reduced });
-        document.querySelectorAll('[data-preview]').forEach((row) => {
-            const btn = row.querySelector('.row-btn');
-            const title = row.querySelector('.row-title').firstChild.textContent.trim();
-            const tag = row.querySelector('.row-method').textContent.trim();
-            const show = () => preview.show(row.dataset.preview, title, tag);
-            btn.addEventListener('pointerenter', show);
-            btn.addEventListener('focus', show);
-            btn.addEventListener('pointerleave', () => preview.hide());
-            btn.addEventListener('blur', () => preview.hide());
+        whenNear($('#projects'), '700px 0px', async () => {
+            const [{ readPalette }, { createPreview }] = await Promise.all([import('./paint.js'), import('./preview.js')]);
+            const preview = createPreview({ el: $('#preview'), canvas: $('#preview-canvas'), caption: $('#preview-cap'), palette: readPalette(), reduced });
+            document.querySelectorAll('[data-preview]').forEach((row) => {
+                const btn = row.querySelector('.row-btn');
+                const title = row.querySelector('.row-title').firstChild.textContent.trim();
+                const tag = row.querySelector('.row-method').textContent.trim();
+                const show = () => preview.show(row.dataset.preview, title, tag);
+                btn.addEventListener('pointerenter', show);
+                btn.addEventListener('focus', show);
+                btn.addEventListener('pointerleave', () => preview.hide());
+                btn.addEventListener('blur', () => preview.hide());
+                if (btn.matches(':hover')) show();
+            });
         });
     }
 }

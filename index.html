@@ -15,7 +15,7 @@
     <meta property="og:description"
         content="Full-stack, Android and Web3 developer sailing from Makassar (UTC+8) to remote teams anywhere.">
     <meta property="og:url" content="https://ertreiter.github.io/Ertreiter/">
-    <meta property="og:image" content="https://ertreiter.github.io/Ertreiter/profile.jpg">
+    <meta property="og:image" content="https://ertreiter.github.io/Ertreiter/assets/profile-og.jpg">
     <meta name="twitter:card" content="summary">
 
     <link rel="icon"
@@ -53,17 +53,22 @@
     }
     </script>
 
+    <script type="importmap">
+    { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js" } }
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+    <!-- start fetching the 3D layer in parallel instead of after main.js runs -->
+    <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js" crossorigin>
+    <link rel="modulepreload" href="js/intro.js">
     <link
-        href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..800;1,9..144,300..800&family=Geist:wght@300..700&family=Geist+Mono:wght@400;500&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..600;1,9..144,400&family=Geist:wght@400..600&family=Geist+Mono:wght@400;500&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="index.css">
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.2/anime.min.js" defer></script>
-    <script type="importmap">
-    { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
-    </script>
     <script type="module" src="js/main.js"></script>
 </head>
 
@@ -144,7 +149,7 @@
                                 <span class="id-ok" id="id-ok">✓ zk-verified</span>
                             </header>
                             <div class="id-body">
-                                <span class="id-photo"><img src="profile.jpg" alt="Portrait of Muh. Rafianto" width="160" height="160"></span>
+                                <span class="id-photo"><img src="assets/profile-card.jpg" alt="Portrait of Muh. Rafianto" width="256" height="256" decoding="async"></span>
                                 <div>
                                     <p class="id-name">Muh. Rafianto</p>
                                     <p class="id-role mono">junior full-stack developer</p>

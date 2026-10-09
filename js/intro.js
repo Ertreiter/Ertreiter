@@ -62,10 +62,9 @@ void main() {
     gl_FragColor = vec4(c * vBright, a * vA * (0.6 + vGold * 0.4));
 }`;
 
-function glyphAtlas() {
-    const c = document.createElement('canvas');
-    c.width = c.height = 512;
+function drawGlyphs(c) {
     const g = c.getContext('2d');
+    g.clearRect(0, 0, c.width, c.height);
     g.fillStyle = '#fff';
     g.textAlign = 'center';
     g.textBaseline = 'middle';
@@ -73,7 +72,23 @@ function glyphAtlas() {
     for (let i = 0; i < 64; i++) {
         g.fillText(GLYPHS[i % GLYPHS.length], (i % 8) * 64 + 32, Math.floor(i / 8) * 64 + 34);
     }
-    return c;
+}
+
+// Draw immediately with whatever monospace is available, then redraw once Geist Mono arrives,
+// so the scene never waits on the font.
+function glyphAtlas() {
+    const c = document.createElement('canvas');
+    c.width = c.height = 512;
+    drawGlyphs(c);
+    const tex = new THREE.CanvasTexture(c);
+    const ready = document.fonts?.check?.('500 42px "Geist Mono"');
+    if (!ready && document.fonts?.load) {
+        document.fonts.load('500 42px "Geist Mono"').then(() => {
+            drawGlyphs(c);
+            tex.needsUpdate = true;
+        }).catch(() => {});
+    }
+    return tex;
 }
 
 /* ------------------------------------------------------------------ helpers */
@@ -107,12 +122,6 @@ function glowTexture(inner, outer) {
     const t = new THREE.CanvasTexture(c);
     t.colorSpace = THREE.SRGBColorSpace;
     return t;
-}
-
-async function fontsReady() {
-    try {
-        await Promise.race([document.fonts.load('500 42px "Geist Mono"'), new Promise((r) => setTimeout(r, 2000))]);
-    } catch (e) { /* system monospace is fine */ }
 }
 
 /* ------------------------------------------------------------------ phinisi */
@@ -335,7 +344,7 @@ function buildPhinisi() {
 export async function createSea({ canvas, reduced }) {
     const mobile = () => window.innerWidth < 760;
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: 'high-performance' });
-    const pix = Math.min(window.devicePixelRatio || 1, mobile() ? 1.5 : 2);
+    let pix = Math.min(window.devicePixelRatio || 1, mobile() ? 1.5 : 2);
     renderer.setPixelRatio(pix);
     renderer.setClearColor('#060A13', 1);
 
@@ -389,8 +398,7 @@ export async function createSea({ canvas, reduced }) {
     scene.add(stars);
 
     // sea of code
-    await fontsReady();
-    const atlas = new THREE.CanvasTexture(glyphAtlas());
+    const atlas = glyphAtlas();
     const seg = mobile() ? 150 : 230;
     const seaGeo = new THREE.PlaneGeometry(84, 84, seg, seg);
     seaGeo.rotateX(-Math.PI / 2);
@@ -502,13 +510,37 @@ export async function createSea({ canvas, reduced }) {
     let running = false;
     let last = performance.now();
     const should = () => !document.hidden && (mode !== 'docked' || window.scrollY < window.innerHeight * 1.15);
+    // Adaptive resolution: steps the pixel ratio down only on devices that can't hold ~40 fps.
+    // Capable devices pass the first probe and keep full resolution; probing then stops.
+    const probe = { frames: 0, time: 0, done: false, steps: 0 };
+    function adapt(raw) {
+        if (probe.done || raw > 0.25) return;
+        probe.frames++;
+        probe.time += raw;
+        if (probe.frames < 90) return;
+        const avg = probe.time / probe.frames;
+        probe.frames = 0;
+        probe.time = 0;
+        if (avg > 1 / 38 && pix > 1.25 && probe.steps < 2) {
+            pix = Math.max(1.25, pix - 0.5);
+            probe.steps++;
+            renderer.setPixelRatio(pix);
+            renderer.setSize(window.innerWidth, window.innerHeight, false);
+            seaMat.uniforms.uPix.value = pix;
+        } else {
+            probe.done = true;
+        }
+    }
+
     function tick() {
         if (!running) return;
         if (!should()) { running = false; return; }
         const now = performance.now();
-        const dt = Math.min(0.05, Math.max(0, now - last) / 1000);
+        const raw = Math.max(0, now - last) / 1000;
+        const dt = Math.min(0.05, raw);
         last = now;
         render(now, dt);
+        adapt(raw);
         requestAnimationFrame(tick);
     }
     function wake() {
