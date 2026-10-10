@@ -432,7 +432,8 @@ export async function createSea({ canvas, reduced }) {
     scene.add(ship);
 
     /* ---------------- poses */
-    const DOCK = { pos: () => new THREE.Vector3(mobile() ? 1.3 : 1.7, 0, mobile() ? -20 : -22), rot: 1.05, scale: 0.85 };
+    // Where the ship ends up: far past the horizon, swallowed by the fog.
+    const AWAY = { pos: () => new THREE.Vector3(mobile() ? 3 : 6.5, 0, -46), rot: 1.4, scale: 0.7 };
     const pose = { pos: new THREE.Vector3(), look: new THREE.Vector3(), fov: 45 };
     let mode = 'intro';
     let flying = false;
@@ -440,11 +441,7 @@ export async function createSea({ canvas, reduced }) {
     const mouse = { x: 0, y: 0 };
 
     function placeShip() {
-        if (mode === 'docked') {
-            ship.position.copy(DOCK.pos());
-            ship.rotation.y = DOCK.rot;
-            ship.scale.setScalar(DOCK.scale);
-        } else if (mode === 'intro') {
+        if (mode === 'intro') {
             ship.position.set(0, 0, 0);
             ship.rotation.y = -0.32;
             ship.scale.setScalar(1);
@@ -463,10 +460,10 @@ export async function createSea({ canvas, reduced }) {
         }
     }
 
-    function dockPose() {
-        pose.pos.set(0, mobile() ? 2.4 : 2.5, 12);
-        pose.look.set(0, mobile() ? 1.4 : 1.25, 0);
-        pose.fov = mobile() ? 55 : 42;
+    function awayPose() {
+        pose.pos.set(0, mobile() ? 3.4 : 3.1, mobile() ? 14 : 11);
+        pose.look.set(mobile() ? 1.2 : 2.4, 0.6, -30);
+        pose.fov = mobile() ? 55 : 45;
     }
 
     function resize() {
@@ -474,7 +471,6 @@ export async function createSea({ canvas, reduced }) {
         camera.aspect = window.innerWidth / window.innerHeight;
         placeShip();
         if (mode === 'intro') introPose();
-        if (mode === 'docked') dockPose();
         render(performance.now(), 0);
     }
 
@@ -494,7 +490,7 @@ export async function createSea({ canvas, reduced }) {
         lampLight.intensity = 4 + Math.sin(t * 7) * 0.3;
 
         if (!flying) {
-            const px = mode === 'docked' ? 0.25 : 0.45;
+            const px = 0.45;
             tmp.copy(pose.pos).add(new THREE.Vector3(mouse.x * px, -mouse.y * px * 0.4, 0));
             const k = dt ? Math.min(1, dt * 2.5) : 1;
             camera.position.lerp(tmp, k);
@@ -509,7 +505,7 @@ export async function createSea({ canvas, reduced }) {
     /* ---------------- loop */
     let running = false;
     let last = performance.now();
-    const should = () => !document.hidden && (mode !== 'docked' || window.scrollY < window.innerHeight * 1.15);
+    const should = () => !document.hidden && mode !== 'gone';
     // Adaptive resolution: steps the pixel ratio down only on devices that can't hold ~40 fps.
     // Capable devices pass the first probe and keep full resolution; probing then stops.
     const probe = { frames: 0, time: 0, done: false, steps: 0 };
@@ -550,14 +546,15 @@ export async function createSea({ canvas, reduced }) {
         requestAnimationFrame(tick);
     }
 
-    window.addEventListener('resize', resize);
-    window.addEventListener('scroll', wake, { passive: true });
-    document.addEventListener('visibilitychange', wake);
+    const listeners = new AbortController();
+    const { signal } = listeners;
+    window.addEventListener('resize', resize, { signal });
+    document.addEventListener('visibilitychange', wake, { signal });
     window.addEventListener('pointermove', (e) => {
         mouse.x = (e.clientX / window.innerWidth - 0.5) * 2;
         mouse.y = (e.clientY / window.innerHeight - 0.5) * 2;
         if (reduced) render(performance.now(), 0);
-    }, { passive: true });
+    }, { passive: true, signal });
 
     placeShip();
     introPose();
@@ -568,26 +565,26 @@ export async function createSea({ canvas, reduced }) {
     wake();
 
     return {
-        /** The ship turns, fills its sails and sails off to the horizon while the camera rises into the docked view. */
+        /** The ship fills its sails, turns and sails over the horizon while the camera rises to watch it go. */
         async setSail(duration = 3600) {
             mode = 'sailing';
-            const s0 = ship.position.clone(), s1 = DOCK.pos();
-            const r0 = ship.rotation.y, r1 = DOCK.rot;
-            const sc0 = ship.scale.x, sc1 = DOCK.scale;
+            const s0 = ship.position.clone(), s1 = AWAY.pos();
+            const r0 = ship.rotation.y, r1 = AWAY.rot;
+            const sc0 = ship.scale.x, sc1 = AWAY.scale;
             const c0 = camera.position.clone(), l0 = pose.look.clone(), f0 = camera.fov;
-            dockPose();
+            awayPose();
             const c1 = pose.pos.clone(), l1 = pose.look.clone(), f1 = pose.fov;
-            const mid = new THREE.Vector3((c0.x + c1.x) / 2 - 1.2, Math.max(c0.y, c1.y) + 2.4, (c0.z + c1.z) / 2 + 1.5);
+            const mid = new THREE.Vector3((c0.x + c1.x) / 2 - 1, Math.max(c0.y, c1.y) + 1.6, (c0.z + c1.z) / 2 + 1);
             const path = new THREE.QuadraticBezierCurve3(c0, mid, c1);
             flying = true;
             await tween(duration, (k) => k, (k) => {
-                const ks = smooth(Math.max(0, (k - 0.08) / 0.92));
-                const turn = smooth(Math.min(1, k * 1.7));
+                const ks = Math.pow(Math.max(0, (k - 0.1) / 0.9), 1.6);
+                const turn = smooth(Math.min(1, k * 1.8));
                 ship.position.x = s0.x + (s1.x - s0.x) * ks;
                 ship.position.z = s0.z + (s1.z - s0.z) * ks;
                 ship.rotation.y = r0 + (r1 - r0) * turn;
                 ship.scale.setScalar(sc0 + (sc1 - sc0) * ks);
-                boost = Math.sin(Math.min(1, k * 2.2) * Math.PI * 0.5) * (1 - smooth(Math.max(0, (k - 0.7) / 0.3)));
+                boost = Math.sin(Math.min(1, k * 2.2) * Math.PI * 0.5) * (1 - smooth(Math.max(0, (k - 0.75) / 0.25)));
                 seaMat.uniforms.uWake.value = Math.sin(k * Math.PI);
                 const kc = easeInOut(k);
                 camera.position.copy(path.getPoint(kc));
@@ -596,23 +593,25 @@ export async function createSea({ canvas, reduced }) {
                 camera.updateProjectionMatrix();
             });
             flying = false;
-            boost = 0;
-            seaMat.uniforms.uWake.value = 0;
-            mode = 'docked';
-            placeShip();
-            wake();
         },
 
-        dock() {
-            mode = 'docked';
-            placeShip();
-            dockPose();
-            camera.position.copy(pose.pos);
-            camera.fov = pose.fov;
-            camera.updateProjectionMatrix();
-            camera.lookAt(pose.look);
-            render(performance.now(), 0);
-            wake();
+        /** Stop rendering and free every GPU resource; the intro never comes back once the visitor is in. */
+        dispose() {
+            mode = 'gone';
+            running = false;
+            listeners.abort();
+            scene.traverse((o) => {
+                o.geometry?.dispose();
+                const mats = Array.isArray(o.material) ? o.material : o.material ? [o.material] : [];
+                mats.forEach((m) => {
+                    Object.values(m.uniforms || {}).forEach((u) => u.value?.isTexture && u.value.dispose());
+                    m.map?.dispose();
+                    m.dispose();
+                });
+            });
+            scene.background?.dispose?.();
+            renderer.dispose();
+            renderer.forceContextLoss();
         }
     };
 }

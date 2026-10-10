@@ -12,6 +12,7 @@ const $ = (s) => document.querySelector(s);
 const intro = $('#intro');
 const seaCanvas = $('#sea');
 const shell = [$('#topbar'), $('#main'), $('#footer')];
+const stackMap = $('.stack-map');
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function webglOk() {
@@ -80,20 +81,29 @@ async function enter(instant = false) {
     }
     queued = false;
     entering = true;
+    intro.classList.add('leaving');
 
     if (instant || !sea || reduced) {
-        intro.classList.add('leaving');
-        if (sea) sea.dock();
-        else intro.classList.add('gone');
         revealSite();
+        closeIntro(450);
         return;
     }
 
-    intro.classList.add('leaving');
-    const voyage = sea.setSail(3600);
+    // The ship sails over the horizon, then the intro cross-fades into the site and is torn down.
+    sea.setSail(3600);
     await wait(2500);
     revealSite();
-    await voyage;
+    closeIntro(1100);
+}
+
+function closeIntro(ms) {
+    intro.style.transitionDuration = `${ms}ms`;
+    intro.classList.add('fading');
+    setTimeout(() => {
+        sea?.dispose();
+        sea = null;
+        intro.remove();
+    }, ms + 60);
 }
 
 $('#enter-btn').addEventListener('click', () => enter(false));
@@ -129,27 +139,33 @@ function whenNear(el, margin, fn) {
     io.observe(el);
 }
 
-async function init3D() {
-    // The intro scene is the only thing needed on first paint; it is modulepreloaded in <head>.
+async function initIntro() {
     const { createSea } = await import('./intro.js');
-    sea = await createSea({ canvas: seaCanvas, reduced });
-    intro.classList.add('ready');
+    const scene = await createSea({ canvas: seaCanvas, reduced });
     if (!isPre()) {
-        intro.classList.remove('gone');
-        sea.dock();
-    } else if (queued) {
-        enter(false);
+        scene.dispose();
+        return;
     }
+    sea = scene;
+    intro.classList.add('ready');
+    if (queued) enter(false);
+}
 
-    // Secondary scenes get their own WebGL contexts, so build them only as their sections approach.
-    whenNear($('#stack'), '900px 0px', async () => {
-        const [{ readPalette }, { createConstellation }] = await Promise.all([import('./paint.js'), import('./constellation.js')]);
-        createConstellation({
-            canvas: $('#constellation'),
-            rows: [...document.querySelectorAll('.stack-row')],
-            label: $('#map-label'),
-            palette: readPalette(), reduced
-        });
+// Secondary scenes get their own WebGL contexts, so build them only as their sections approach.
+function initLazy3D() {
+    const hideMap = (err) => {
+        console.warn('skills graph unavailable:', err);
+        stackMap?.style.setProperty('display', 'none');
+    };
+    whenNear($('#stack'), '900px 0px', () => {
+        Promise.all([import('./paint.js'), import('./constellation.js')]).then(([{ readPalette }, { createConstellation }]) => {
+            createConstellation({
+                canvas: $('#constellation'),
+                rows: [...document.querySelectorAll('.stack-row')],
+                label: $('#map-label'),
+                palette: readPalette(), reduced
+            });
+        }).catch(hideMap);
     });
 
     if (matchMedia('(hover: hover) and (pointer: fine)').matches) {
@@ -174,16 +190,22 @@ async function init3D() {
 function without3D() {
     unavailable = true;
     queued = false;
-    intro.classList.add('gone');
-    document.querySelector('.stack-map')?.style.setProperty('display', 'none');
+    stackMap?.style.setProperty('display', 'none');
     if (isPre()) enter(true);
+    else intro.remove();
 }
 
 if (webglOk()) {
-    init3D().catch((err) => {
-        console.warn('3D layer unavailable:', err);
-        without3D();
-    });
+    if (isPre()) {
+        initIntro().catch((err) => {
+            console.warn('3D intro unavailable:', err);
+            unavailable = true;
+            if (isPre()) enter(true);
+        });
+    } else {
+        intro.remove();
+    }
+    initLazy3D();
 } else {
     without3D();
 }

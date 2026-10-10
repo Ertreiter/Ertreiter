@@ -60,9 +60,18 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="preconnect" href="https://cdnjs.cloudflare.com">
-    <!-- start fetching the 3D layer in parallel instead of after main.js runs -->
-    <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js" crossorigin>
-    <link rel="modulepreload" href="js/intro.js">
+    <script>
+        // Start fetching the intro scene in parallel, but only when the intro is going to play.
+        if (document.documentElement.classList.contains('pre-enter')) {
+            ['https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js', 'js/intro.js'].forEach(function (href) {
+                var l = document.createElement('link');
+                l.rel = 'modulepreload';
+                l.href = href;
+                l.crossOrigin = 'anonymous';
+                document.head.appendChild(l);
+            });
+        }
+    </script>
     <link
         href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..600;1,9..144,400&family=Geist:wght@400..600&family=Geist+Mono:wght@400;500&display=swap"
         rel="stylesheet">
@@ -123,6 +132,7 @@
 
     <main id="main">
         <section id="top" class="hero">
+            <div class="hero-bg" aria-hidden="true"><div class="hero-sea"></div></div>
             <div class="container hero-grid">
                 <div class="hero-copy">
                     <p class="eyebrow mono" data-hero><i class="live"></i> open to remote work · <span class="gold">Makassar → anywhere</span></p>
@@ -140,33 +150,30 @@
 
                 <div class="id-wrap" data-hero>
                     <article class="id-card" id="id-card" aria-label="Developer identity card">
-                        <div class="id-foil" aria-hidden="true"></div>
+                        <span class="id-sheen" aria-hidden="true"></span>
                         <span class="id-scan" aria-hidden="true"></span>
-                        <div class="id-glare" aria-hidden="true"></div>
-                        <div class="id-inner">
-                            <header class="id-top mono">
-                                <span>DEV ID · Phinisi Protocol</span>
-                                <span class="id-ok" id="id-ok">✓ zk-verified</span>
-                            </header>
-                            <div class="id-body">
-                                <span class="id-photo"><img src="assets/profile-card.jpg" alt="Portrait of Muh. Rafianto" width="256" height="256" decoding="async"></span>
-                                <div>
-                                    <p class="id-name">Muh. Rafianto</p>
-                                    <p class="id-role mono">junior full-stack developer</p>
-                                    <p class="id-role mono dim">web · android · web3</p>
-                                </div>
+                        <header class="id-top mono">
+                            <span class="id-issuer"><b aria-hidden="true">◆</b>Phinisi Protocol · Dev ID</span>
+                            <span class="id-ok" id="id-ok">✓ zk-verified</span>
+                        </header>
+                        <div class="id-body">
+                            <span class="id-photo"><img src="assets/profile-card.jpg" alt="Portrait of Muh. Rafianto" width="256" height="256" decoding="async"></span>
+                            <div class="id-main">
+                                <p class="id-name">Muh. Rafianto</p>
+                                <p class="id-role mono">junior full-stack developer</p>
+                                <p class="id-role mono dim">web · android · web3</p>
+                                <dl class="id-fields mono">
+                                    <div><dt>exp</dt><dd><span data-count="2">2</span>+ yrs</dd></div>
+                                    <div><dt>gpa</dt><dd><span data-count="3.86" data-decimals="2">3.86</span></dd></div>
+                                    <div><dt>english</dt><dd>C1/C2</dd></div>
+                                    <div><dt>port</dt><dd>UTC+8</dd></div>
+                                </dl>
                             </div>
-                            <dl class="id-fields mono">
-                                <div><dt>experience</dt><dd><span data-count="2">2</span>+ yrs</dd></div>
-                                <div><dt>gpa</dt><dd><span data-count="3.86" data-decimals="2">3.86</span></dd></div>
-                                <div><dt>english</dt><dd>C1/C2</dd></div>
-                                <div><dt>port</dt><dd>UTC+8</dd></div>
-                            </dl>
-                            <footer class="id-foot mono">
-                                <span class="hash" data-hash="muh-rafianto-dev-id"></span>
-                                <span class="id-chip" aria-hidden="true"></span>
-                            </footer>
                         </div>
+                        <footer class="id-foot">
+                            <p class="id-mrz mono" aria-hidden="true"><span>DEV&lt;IDN&lt;RAFIANTO&lt;&lt;MUH&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;</span><span>FULLSTACK&lt;WEB&lt;ANDROID&lt;WEB3&lt;&lt;UTC8&lt;</span></p>
+                            <span class="id-holo" aria-hidden="true"><i></i><b>ZK</b></span>
+                        </footer>
                     </article>
                 </div>
             </div>
